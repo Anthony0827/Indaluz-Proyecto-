@@ -19,114 +19,165 @@
     @stack('styles')
 </head>
 <body class="bg-gray-100">
-    <div class="min-h-screen flex">
-        <!-- Sidebar -->
-        <div x-data="{ open: false }" class="flex">
-            <!-- Sidebar para escritorio -->
-            <div class="hidden lg:flex lg:flex-shrink-0">
-                <div class="flex flex-col w-64 bg-green-800">
-                    <!-- Logo -->
-                    <div class="flex items-center justify-center h-16 bg-green-900">
-                        <a href="{{ route('agricultor.dashboard') }}" class="flex items-center gap-2">
-                            <img src="{{ asset('images/logo-indaluz.png') }}" alt="Indaluz" class="h-10 w-auto">
-                            <span class="text-white font-bold text-xl">Indaluz</span>
-                        </a>
-                    </div>
-
-                    <!-- Navegación -->
-                    <nav class="flex-1 px-2 py-4 bg-green-800 space-y-1">
-                        <a href="{{ route('agricultor.dashboard') }}" 
-                           class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
-                           {{ request()->routeIs('agricultor.dashboard') ? 'bg-green-700' : '' }}">
-                            <i data-lucide="home" class="w-5 h-5"></i>
-                            <span>Dashboard</span>
-                        </a>
-
-                        <a href="{{ route('agricultor.productos.index') }}" 
-                           class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
-                           {{ request()->routeIs('agricultor.productos.*') ? 'bg-green-700' : '' }}">
-                            <i data-lucide="package" class="w-5 h-5"></i>
-                            <span>Mis Productos</span>
-                        </a>
-
-                        <a href="{{ route('agricultor.pedidos.index') }}" 
-                           class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
-                           {{ request()->routeIs('agricultor.pedidos.*') ? 'bg-green-700' : '' }}">
-                            <i data-lucide="shopping-cart" class="w-5 h-5"></i>
-                            <span>Pedidos</span>
-                        </a>
-
-                        <a href="{{ route('agricultor.ventas.index') }}" 
-                           class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
-                           {{ request()->routeIs('agricultor.ventas.*') ? 'bg-green-700' : '' }}">
-                            <i data-lucide="trending-up" class="w-5 h-5"></i>
-                            <span>Ventas</span>
-                        </a>
-
-                        <a href="{{ route('agricultor.resenas.index') }}"
-                            class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition {{ request()->routeIs('agricultor.resenas.*') ? 'bg-green-700' : '' }}">
-                                <i data-lucide="star" class="w-5 h-5"></i>
-                                <span>Reseñas</span>
-                            </a>
-
-
-                        <a href="{{ route('agricultor.perfil.index') }}" 
-                           class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
-                           {{ request()->routeIs('agricultor.perfil.*') ? 'bg-green-700' : '' }}">
-                            <i data-lucide="user" class="w-5 h-5"></i>
-                            <span>Mi Perfil</span>
-                        </a>
-                    </nav>
-
-                    <!-- Cerrar sesión -->
-                    <div class="flex-shrink-0 flex bg-green-900 p-4">
-                        <form method="POST" action="{{ route('logout') }}" class="w-full">
-                            @csrf
-                            <button type="submit" 
-                                    class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-800 transition w-full">
-                                <i data-lucide="log-out" class="w-5 h-5"></i>
-                                <span>Cerrar Sesión</span>
-                            </button>
-                        </form>
-                    </div>
+    {{-- CORREGIDO: x-data en el contenedor principal para que el ámbito incluya todo --}}
+    <div class="min-h-screen flex" x-data="{ open: false }">
+        <!-- Sidebar para escritorio -->
+        <div class="hidden lg:flex lg:flex-shrink-0">
+            <div class="flex flex-col w-64 bg-green-800">
+                <!-- Logo -->
+                <div class="flex items-center justify-center h-16 bg-green-900">
+                    <a href="{{ route('agricultor.dashboard') }}" class="flex items-center gap-2">
+                        <img src="{{ asset('images/logo-indaluz.png') }}" alt="Indaluz" class="h-10 w-auto">
+                        <span class="text-white font-bold text-xl">Indaluz</span>
+                    </a>
                 </div>
-            </div>
 
-            <!-- Sidebar móvil -->
-            <div x-show="open" 
-                 x-transition:enter="transition ease-out duration-300"
-                 x-transition:enter-start="-translate-x-full"
-                 x-transition:enter-end="translate-x-0"
-                 x-transition:leave="transition ease-in duration-300"
-                 x-transition:leave-start="translate-x-0"
-                 x-transition:leave-end="-translate-x-full"
-                 class="lg:hidden fixed inset-0 z-40 flex">
-                <div class="relative flex-1 flex flex-col max-w-xs w-full bg-green-800">
-                    <!-- Logo móvil -->
-                    <div class="flex items-center justify-between h-16 bg-green-900 px-4">
-                        <a href="{{ route('agricultor.dashboard') }}" class="flex items-center gap-2">
-                            <img src="{{ asset('images/logo-indaluz.png') }}" alt="Indaluz" class="h-10 w-auto">
-                            <span class="text-white font-bold text-xl">Indaluz</span>
-                        </a>
-                        <button @click="open = false" class="text-white">
-                            <i data-lucide="x" class="w-6 h-6"></i>
+                <!-- Navegación escritorio -->
+                <nav class="flex-1 px-2 py-4 bg-green-800 space-y-1">
+                    <a href="{{ route('agricultor.dashboard') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.dashboard') ? 'bg-green-700' : '' }}">
+                        <i data-lucide="home" class="w-5 h-5"></i>
+                        <span>Dashboard</span>
+                    </a>
+
+                    <a href="{{ route('agricultor.productos.index') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.productos.*') ? 'bg-green-700' : '' }}">
+                        <i data-lucide="package" class="w-5 h-5"></i>
+                        <span>Mis Productos</span>
+                    </a>
+
+                    <a href="{{ route('agricultor.pedidos.index') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.pedidos.*') ? 'bg-green-700' : '' }}">
+                        <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+                        <span>Pedidos</span>
+                    </a>
+
+                    <a href="{{ route('agricultor.ventas.index') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.ventas.*') ? 'bg-green-700' : '' }}">
+                        <i data-lucide="trending-up" class="w-5 h-5"></i>
+                        <span>Ventas</span>
+                    </a>
+
+                    <a href="{{ route('agricultor.resenas.index') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.resenas.*') ? 'bg-green-700' : '' }}">
+                        <i data-lucide="star" class="w-5 h-5"></i>
+                        <span>Reseñas</span>
+                    </a>
+
+                    <a href="{{ route('agricultor.perfil.index') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.perfil.*') ? 'bg-green-700' : '' }}">
+                        <i data-lucide="user" class="w-5 h-5"></i>
+                        <span>Mi Perfil</span>
+                    </a>
+                </nav>
+
+                <!-- Cerrar sesión escritorio -->
+                <div class="flex-shrink-0 flex bg-green-900 p-4">
+                    <form method="POST" action="{{ route('logout') }}" class="w-full">
+                        @csrf
+                        <button type="submit" 
+                                class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-800 transition w-full">
+                            <i data-lucide="log-out" class="w-5 h-5"></i>
+                            <span>Cerrar Sesión</span>
                         </button>
-                    </div>
+                    </form>
+                </div>
+            </div>
+        </div>
 
-                    <!-- Navegación móvil (mismo contenido que escritorio) -->
-                    <nav class="flex-1 px-2 py-4 bg-green-800 space-y-1">
-                        <!-- Copiar los mismos enlaces de navegación aquí -->
-                        <a href="{{ route('agricultor.dashboard') }}" 
-                           class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition">
-                            <i data-lucide="home" class="w-5 h-5"></i>
-                            <span>Dashboard</span>
-                        </a>
-                    </nav>
+        <!-- Sidebar móvil -->
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="-translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition ease-in duration-300"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="-translate-x-full"
+             class="lg:hidden fixed inset-0 z-40 flex">
+            <div class="relative flex-1 flex flex-col max-w-xs w-full bg-green-800">
+                <!-- Logo móvil -->
+                <div class="flex items-center justify-between h-16 bg-green-900 px-4">
+                    <a href="{{ route('agricultor.dashboard') }}" class="flex items-center gap-2">
+                        <img src="{{ asset('images/logo-indaluz.png') }}" alt="Indaluz" class="h-10 w-auto">
+                        <span class="text-white font-bold text-xl">Indaluz</span>
+                    </a>
+                    <button @click="open = false" class="text-white">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
                 </div>
 
-                <!-- Overlay -->
-                <div @click="open = false" class="flex-shrink-0 w-14 bg-black bg-opacity-50"></div>
+                <!-- Navegación móvil completa -->
+                <nav class="flex-1 px-2 py-4 bg-green-800 space-y-1">
+                    <a href="{{ route('agricultor.dashboard') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.dashboard') ? 'bg-green-700' : '' }}"
+                       @click="open = false">
+                        <i data-lucide="home" class="w-5 h-5"></i>
+                        <span>Dashboard</span>
+                    </a>
+
+                    <a href="{{ route('agricultor.productos.index') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.productos.*') ? 'bg-green-700' : '' }}"
+                       @click="open = false">
+                        <i data-lucide="package" class="w-5 h-5"></i>
+                        <span>Mis Productos</span>
+                    </a>
+
+                    <a href="{{ route('agricultor.pedidos.index') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.pedidos.*') ? 'bg-green-700' : '' }}"
+                       @click="open = false">
+                        <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+                        <span>Pedidos</span>
+                    </a>
+
+                    <a href="{{ route('agricultor.ventas.index') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.ventas.*') ? 'bg-green-700' : '' }}"
+                       @click="open = false">
+                        <i data-lucide="trending-up" class="w-5 h-5"></i>
+                        <span>Ventas</span>
+                    </a>
+
+                    <a href="{{ route('agricultor.resenas.index') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.resenas.*') ? 'bg-green-700' : '' }}"
+                       @click="open = false">
+                        <i data-lucide="star" class="w-5 h-5"></i>
+                        <span>Reseñas</span>
+                    </a>
+
+                    <a href="{{ route('agricultor.perfil.index') }}" 
+                       class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-700 transition
+                       {{ request()->routeIs('agricultor.perfil.*') ? 'bg-green-700' : '' }}"
+                       @click="open = false">
+                        <i data-lucide="user" class="w-5 h-5"></i>
+                        <span>Mi Perfil</span>
+                    </a>
+                </nav>
+
+                <!-- Cerrar sesión móvil -->
+                <div class="flex-shrink-0 flex bg-green-900 p-4">
+                    <form method="POST" action="{{ route('logout') }}" class="w-full">
+                        @csrf
+                        <button type="submit" 
+                                class="flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-green-800 transition w-full">
+                            <i data-lucide="log-out" class="w-5 h-5"></i>
+                            <span>Cerrar Sesión</span>
+                        </button>
+                    </form>
+                </div>
             </div>
+
+            <!-- Overlay -->
+            <div @click="open = false" class="flex-shrink-0 w-14 bg-black bg-opacity-50"></div>
         </div>
 
         <!-- Contenido principal -->
@@ -134,8 +185,8 @@
             <!-- Header superior -->
             <header class="bg-white shadow-sm">
                 <div class="flex items-center justify-between px-4 py-3">
-                    <!-- Botón menú móvil -->
-                    <button @click="open = true" class="lg:hidden text-gray-500 hover:text-gray-700">
+                    <!-- CORREGIDO: Botón menú móvil ahora está dentro del ámbito x-data -->
+                    <button @click="open = true" class="lg:hidden text-gray-500 hover:text-gray-700 focus:outline-none focus:text-gray-700">
                         <i data-lucide="menu" class="w-6 h-6"></i>
                     </button>
 
@@ -173,13 +224,6 @@
 
                 @yield('content')
             </main>
-
-            <!-- Footer -->
-            <footer class="bg-white border-t border-gray-200 px-6 py-4">
-                <p class="text-sm text-gray-600 text-center">
-                    © {{ date('Y') }} Indaluz - Panel de Agricultor
-                </p>
-            </footer>
         </div>
     </div>
 
@@ -203,6 +247,11 @@
                     });
                 }
             }));
+        });
+        
+        // Debug: Verificar que Alpine.js está funcionando
+        document.addEventListener('alpine:init', () => {
+            console.log('Alpine.js inicializado correctamente');
         });
     </script>
 
