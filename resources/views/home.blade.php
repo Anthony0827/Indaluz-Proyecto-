@@ -10,7 +10,7 @@
         <div>
             <h1 class="text-4xl md:text-5xl font-bold mb-4">Frescura directa desde el campo</h1>
             <p class="mb-6 text-lg">Conecta con agricultores locales y disfruta productos frescos, sostenibles y saludables.</p>
-            <a href="#" class="bg-white text-green-700 px-6 py-2 rounded font-semibold hover:bg-green-100 transition">Empieza ahora</a>
+            <a href="{{ route('register') }}" class="bg-white text-green-700 px-6 py-2 rounded font-semibold hover:bg-green-100 transition">Empieza ahora</a>
         </div>
     </div>
 </section>
@@ -62,7 +62,7 @@
 <section class="text-center bg-green-700 text-white py-12 rounded-xl mb-16">
     <h3 class="text-2xl font-semibold mb-4">¡Únete a la revolución verde!</h3>
     <p class="mb-6">Crea tu cuenta y empieza a apoyar el comercio local hoy mismo.</p>
-    <a href="#" class="bg-white text-green-700 px-6 py-2 rounded hover:bg-green-100 transition">Registrarse</a>
+    <a href="{{ route('register') }}" class="bg-white text-green-700 px-6 py-2 rounded hover:bg-green-100 transition">Registrarse</a>
 </section>
 
 <!-- CONTACTO Y REDES SOCIALES PROFESIONAL -->
