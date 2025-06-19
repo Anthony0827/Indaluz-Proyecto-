@@ -4,6 +4,8 @@
 @section('title', 'Mi Carrito')
 
 @section('content')
+<meta name="csrf-token" content="{{ csrf_token() }}">
+
 <div class="container mx-auto px-4 py-6">
     <h1 class="text-3xl font-bold text-gray-800 mb-8">Mi Carrito de Compras</h1>
 
@@ -63,44 +65,79 @@
 
 @push('scripts')
 <script>
+// Variables globales para el script
+window.carritoRoutes = {
+    validar: "{{ route('cliente.carrito.validar') }}",
+    checkout: "{{ route('cliente.checkout') }}",
+    home: "{{ route('cliente.home') }}"
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     // Gestión del carrito
     const carritoManager = {
         items: [],
+        csrfToken: document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
         
         init() {
+            console.log('Inicializando carrito manager...');
             this.loadFromStorage();
             this.render();
-            this.validarCarrito();
+            // Validar carrito con delay para evitar sobrecarga
+            setTimeout(() => this.validarCarrito(), 500);
         },
         
         loadFromStorage() {
             try {
                 const stored = localStorage.getItem('carrito');
                 this.items = stored ? JSON.parse(stored) : [];
-                // Asegurar que items sea siempre un array
+                
+                // Asegurar que items sea siempre un array válido
                 if (!Array.isArray(this.items)) {
+                    console.warn('Carrito en localStorage no es array válido:', this.items);
                     this.items = [];
+                    localStorage.removeItem('carrito');
+                    return;
                 }
+                
+                // Validar estructura de cada item y limpiar items inválidos
+                this.items = this.items.filter((item, index) => {
+                    const isValid = item && 
+                           typeof item.id !== 'undefined' && 
+                           typeof item.nombre !== 'undefined' && 
+                           typeof item.cantidad !== 'undefined' &&
+                           item.cantidad > 0;
+                    
+                    if (!isValid) {
+                        console.warn('Item inválido en carrito:', item, 'en índice:', index);
+                    }
+                    
+                    return isValid;
+                });
+                
+                console.log('Carrito cargado desde localStorage:', this.items);
+                
             } catch (e) {
                 console.error('Error loading cart:', e);
                 this.items = [];
+                localStorage.removeItem('carrito');
+                this.showNotification('Error al cargar el carrito. Se ha reiniciado.', 'error');
             }
         },
         
         saveToStorage() {
             try {
+                console.log('Guardando carrito:', this.items);
                 localStorage.setItem('carrito', JSON.stringify(this.items));
                 this.updateCartCount();
-                // Actualizar también el dropdown del header si existe
                 this.updateHeaderCart();
             } catch (e) {
                 console.error('Error saving cart:', e);
+                this.showNotification('Error al guardar el carrito', 'error');
             }
         },
         
         updateCartCount() {
-            const total = this.items.reduce((sum, item) => sum + (item.cantidad || 0), 0);
+            const total = this.items.reduce((sum, item) => sum + (parseInt(item.cantidad) || 0), 0);
             document.querySelectorAll('.cart-count').forEach(el => {
                 el.textContent = total;
             });
@@ -114,14 +151,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     let html = '<div class="max-h-96 overflow-y-auto">';
                     this.items.forEach(item => {
+                        const precio = parseFloat(item.precio) || 0;
+                        const cantidad = parseInt(item.cantidad) || 0;
                         html += `
                             <div class="px-4 py-3 border-b hover:bg-gray-50">
                                 <div class="flex justify-between items-start">
                                     <div class="flex-1">
-                                        <h4 class="font-medium text-sm">${item.nombre}</h4>
-                                        <p class="text-xs text-gray-600">${item.cantidad} x ${parseFloat(item.precio).toFixed(2)}€/${item.unidad || 'unidad'}</p>
+                                        <h4 class="font-medium text-sm">${this.escapeHtml(item.nombre)}</h4>
+                                        <p class="text-xs text-gray-600">${cantidad} x ${precio.toFixed(2)}€/${item.unidad || 'unidad'}</p>
                                     </div>
-                                    <span class="font-semibold text-sm">${(item.cantidad * parseFloat(item.precio)).toFixed(2)}€</span>
+                                    <span class="font-semibold text-sm">${(cantidad * precio).toFixed(2)}€</span>
                                 </div>
                             </div>
                         `;
@@ -133,70 +172,115 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         
         async validarCarrito() {
-            if (this.items.length === 0) return;
+            if (this.items.length === 0) {
+                console.log('Carrito vacío, saltando validación');
+                return;
+            }
             
             try {
-                const response = await fetch('{{ route("cliente.carrito.validar") }}', {
+                console.log('Iniciando validación del carrito con items:', this.items);
+                console.log('CSRF Token:', this.csrfToken);
+                console.log('URL de validación:', window.carritoRoutes.validar);
+                
+                const requestBody = { items: this.items };
+                console.log('Enviando:', JSON.stringify(requestBody));
+                
+                const response = await fetch(window.carritoRoutes.validar, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        'X-CSRF-TOKEN': this.csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
                     },
-                    body: JSON.stringify({ items: this.items })
+                    body: JSON.stringify(requestBody)
                 });
                 
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    const errorText = await response.text();
+                    console.error('Error response body:', errorText);
+                    
+                    if (response.status === 419) {
+                        this.showNotification('Sesión expirada. Recargando página...', 'error');
+                        setTimeout(() => window.location.reload(), 2000);
+                        return;
+                    }
+                    
+                    if (response.status === 500) {
+                        this.showNotification('Error interno del servidor. Intenta recargar la página.', 'error');
+                        return;
+                    }
+                    
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errorText}`);
                 }
                 
                 const data = await response.json();
+                console.log('Respuesta exitosa del servidor:', data);
                 
-                if (data.productos) {
-                    // Actualizar items con información validada
+                if (data.productos && Array.isArray(data.productos)) {
+                    console.log('Actualizando items con productos validados:', data.productos);
                     this.items = data.productos;
                     this.saveToStorage();
                     this.render();
                 }
                 
                 if (data.errores && data.errores.length > 0) {
-                    // Mostrar errores
-                    data.errores.forEach(error => {
-                        this.showNotification(error, 'error');
+                    console.log('Mostrando errores:', data.errores);
+                    // Mostrar errores uno por uno con delay
+                    data.errores.forEach((error, index) => {
+                        setTimeout(() => {
+                            this.showNotification(error, 'error');
+                        }, index * 1000);
                     });
                 }
+                
             } catch (error) {
-                console.error('Error validando carrito:', error);
+                console.error('Error completo en validación del carrito:', error);
+                console.error('Stack trace:', error.stack);
+                this.showNotification('Error al validar el carrito. Verifica tu conexión a internet.', 'error');
             }
         },
         
         updateQuantity(id, cantidad) {
+            console.log('Actualizando cantidad:', { id, cantidad });
             const itemIndex = this.items.findIndex(i => i.id == id);
             if (itemIndex !== -1) {
                 const item = this.items[itemIndex];
-                const newQuantity = Math.max(1, Math.min(cantidad, item.max || 99));
+                const newQuantity = Math.max(1, Math.min(parseInt(cantidad) || 1, parseInt(item.max) || 99));
+                console.log('Nueva cantidad calculada:', newQuantity);
                 this.items[itemIndex].cantidad = newQuantity;
                 this.saveToStorage();
                 this.render();
+                
+                // Validar después de cambiar cantidad
+                setTimeout(() => this.validarCarrito(), 500);
+            } else {
+                console.error('Item no encontrado para actualizar cantidad:', id);
             }
         },
         
         removeItem(id) {
-            // Filtrar el item que queremos eliminar
+            console.log('Eliminando item:', id);
             const originalLength = this.items.length;
             this.items = this.items.filter(item => item.id != id);
             
-            // Verificar que realmente se eliminó
             if (this.items.length < originalLength) {
                 this.saveToStorage();
                 this.render();
                 this.showNotification('Producto eliminado del carrito', 'success');
+                console.log('Item eliminado exitosamente');
             } else {
                 console.error('No se pudo eliminar el producto con id:', id);
+                this.showNotification('Error al eliminar el producto', 'error');
             }
         },
         
         clearCart() {
             if (confirm('¿Estás seguro de vaciar el carrito?')) {
+                console.log('Vaciando carrito');
                 this.items = [];
                 this.saveToStorage();
                 this.render();
@@ -205,21 +289,29 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         
         calculateTotal() {
-            return this.items.reduce((sum, item) => {
+            const total = this.items.reduce((sum, item) => {
                 const precio = parseFloat(item.precio) || 0;
                 const cantidad = parseInt(item.cantidad) || 0;
                 return sum + (precio * cantidad);
             }, 0);
+            console.log('Total calculado:', total);
+            return total;
         },
         
         render() {
+            console.log('Renderizando carrito con', this.items.length, 'items');
             const container = document.getElementById('productos-carrito');
             const resumen = document.getElementById('resumen-carrito');
             const total = document.getElementById('total-carrito');
             const btnPago = document.getElementById('proceder-pago');
             
             if (!container || !resumen || !total || !btnPago) {
-                console.error('Elementos del carrito no encontrados');
+                console.error('Elementos del carrito no encontrados:', {
+                    container: !!container,
+                    resumen: !!resumen,
+                    total: !!total,
+                    btnPago: !!btnPago
+                });
                 return;
             }
             
@@ -229,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <i data-lucide="shopping-cart" class="w-16 h-16 text-gray-400 mx-auto mb-4"></i>
                         <h3 class="text-xl font-semibold text-gray-800 mb-2">Tu carrito está vacío</h3>
                         <p class="text-gray-600 mb-6">Agrega algunos productos frescos para empezar</p>
-                        <a href="{{ route('cliente.home') }}" 
+                        <a href="${window.carritoRoutes.home}" 
                            class="inline-flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition">
                             <i data-lucide="arrow-left" class="w-5 h-5"></i>
                             Ir a comprar
@@ -262,13 +354,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="flex gap-4 p-4 border rounded-lg ${item.precio_cambio ? 'border-yellow-400 bg-yellow-50' : ''}">
                             <div class="w-24 h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                                 ${item.imagen 
-                                    ? `<img src="${item.imagen}" alt="${item.nombre}" class="w-full h-full object-cover">`
+                                    ? `<img src="${item.imagen}" alt="${this.escapeHtml(item.nombre)}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<div class=\\"w-full h-full flex items-center justify-center text-gray-400\\"><i data-lucide=\\"image-off\\" class=\\"w-8 h-8\\"></i></div>'">`
                                     : '<div class="w-full h-full flex items-center justify-center text-gray-400"><i data-lucide="image-off" class="w-8 h-8"></i></div>'
                                 }
                             </div>
                             <div class="flex-1">
-                                <h3 class="font-semibold text-gray-800">${item.nombre}</h3>
-                                <p class="text-sm text-gray-600">Vendido por: ${item.agricultor || 'Agricultor'}</p>
+                                <h3 class="font-semibold text-gray-800">${this.escapeHtml(item.nombre)}</h3>
+                                <p class="text-sm text-gray-600">Vendido por: ${this.escapeHtml(item.agricultor || 'Agricultor')}</p>
                                 <div class="flex items-center gap-2 mt-2">
                                     <span class="text-green-600 font-semibold">
                                         ${precio.toFixed(2)}€/${item.unidad || 'unidad'}
@@ -291,7 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                            value="${cantidad}" 
                                            min="1" 
                                            max="${max}"
-                                           onchange="window.carritoManager.updateQuantity('${item.id}', parseInt(this.value))"
+                                           onchange="window.carritoManager.updateQuantity('${item.id}', parseInt(this.value) || 1)"
                                            class="w-16 text-center border-0 focus:outline-none">
                                     <button onclick="window.carritoManager.updateQuantity('${item.id}', ${cantidad + 1})"
                                             class="px-3 py-1 hover:bg-gray-100 ${cantidad >= max ? 'opacity-50 cursor-not-allowed' : ''}"
@@ -324,7 +416,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     htmlResumen += `
                         <div class="flex justify-between text-sm">
-                            <span class="text-gray-600">${item.nombre} x${cantidad}</span>
+                            <span class="text-gray-600">${this.escapeHtml(item.nombre)} x${cantidad}</span>
                             <span class="font-medium">${subtotal.toFixed(2)}€</span>
                         </div>
                     `;
@@ -334,76 +426,122 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Actualizar total
                 const totalAmount = this.calculateTotal();
                 total.textContent = totalAmount.toFixed(2) + '€';
-                btnPago.disabled = false;
+                btnPago.disabled = totalAmount <= 0;
             }
             
             // Reinicializar iconos de Lucide
             if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
             }
+            
+            console.log('Renderizado completado');
         },
         
         showNotification(message, type = 'info') {
+            console.log('Mostrando notificación:', { message, type });
+            
+            // Evitar notificaciones duplicadas
+            const existingNotifications = document.querySelectorAll('.notification-popup');
+            for (let notif of existingNotifications) {
+                if (notif.textContent.includes(message)) {
+                    console.log('Notificación duplicada evitada');
+                    return;
+                }
+            }
+            
             const notification = document.createElement('div');
-            notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
-                type === 'error' ? 'bg-red-100 text-red-800' : 
-                type === 'success' ? 'bg-green-100 text-green-800' : 
-                'bg-blue-100 text-blue-800'
+            notification.className = `notification-popup fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm ${
+                type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' : 
+                type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 
+                'bg-blue-100 text-blue-800 border border-blue-200'
             }`;
             notification.innerHTML = `
                 <div class="flex items-center gap-2">
-                    <i data-lucide="${type === 'error' ? 'alert-circle' : type === 'success' ? 'check-circle' : 'info'}" class="w-5 h-5"></i>
-                    <span>${message}</span>
+                    <i data-lucide="${type === 'error' ? 'alert-circle' : type === 'success' ? 'check-circle' : 'info'}" class="w-5 h-5 flex-shrink-0"></i>
+                    <span class="text-sm flex-1">${this.escapeHtml(message)}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-gray-600 hover:text-gray-800 flex-shrink-0">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
                 </div>
             `;
             document.body.appendChild(notification);
             
+            // Auto-remover después de 5 segundos
             setTimeout(() => {
-                notification.remove();
-            }, 3000);
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
             
             if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
             }
+        },
+        
+        escapeHtml(text) {
+            if (typeof text !== 'string') return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     };
     
-    // Hacer carritoManager global para poder acceder desde los onclick
+    // Hacer carritoManager global
     window.carritoManager = carritoManager;
     
     // Inicializar carrito
+    console.log('Iniciando aplicación del carrito...');
     carritoManager.init();
     
     // Botón proceder al pago
-        const btnProcederPago = document.getElementById('proceder-pago');
-
+    const btnProcederPago = document.getElementById('proceder-pago');
     if (btnProcederPago) {
-        btnProcederPago.addEventListener('click', function () {
+        console.log('Configurando botón de pago');
+        btnProcederPago.addEventListener('click', async function () {
+            console.log('Botón pago clickeado');
+            
             if (carritoManager.items.length > 0) {
-                // Validar carrito primero
-                fetch('{{ route("cliente.carrito.validar") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({ items: carritoManager.items })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = '{{ route("cliente.checkout") }}';
-                    } else {
-                        alert('Algunos productos no están disponibles. Por favor revisa tu carrito.');
+                try {
+                    console.log('Validando carrito antes del checkout...');
+                    
+                    const response = await fetch(window.carritoRoutes.validar, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': carritoManager.csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ items: carritoManager.items })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Error ${response.status}: ${response.statusText}`);
                     }
-                })
-                .catch(error => {
-                    console.error('Error en la validación del carrito:', error);
-                    alert('Ha ocurrido un error al validar el carrito.');
-                });
+                    
+                    const data = await response.json();
+                    console.log('Respuesta de validación pre-checkout:', data);
+                    
+                    if (data.success) {
+                        console.log('Validación exitosa, redirigiendo a checkout...');
+                        window.location.href = window.carritoRoutes.checkout;
+                    } else {
+                        carritoManager.showNotification('Algunos productos no están disponibles. Por favor revisa tu carrito.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error en la validación pre-checkout:', error);
+                    carritoManager.showNotification('Ha ocurrido un error al validar el carrito.', 'error');
+                }
+            } else {
+                console.log('Carrito vacío al intentar pagar');
+                carritoManager.showNotification('Tu carrito está vacío', 'error');
             }
         });
+    } else {
+        console.error('Botón de proceder al pago no encontrado');
     }
+    
+    console.log('Inicialización completa del carrito');
 });
 </script>
 @endpush
